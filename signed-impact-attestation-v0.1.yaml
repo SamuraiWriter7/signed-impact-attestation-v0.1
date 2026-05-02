@@ -1,0 +1,675 @@
+spec:
+  id: "signed-impact-attestation-v0.1"
+  title: "Signed Impact Attestation v0.1"
+  short_name: "SIA"
+  version: "0.1"
+  status: "draft"
+  layer: "attestation-layer"
+  summary: >
+    Signed Impact Attestation v0.1 defines a minimal, portable, and auditable
+    envelope for attaching cryptographic signatures to an Impact Score Profile.
+    It proves who asserted, reviewed, or approved a contribution evaluation,
+    when the assertion was made, and which exact payload was signed.
+  purpose:
+    - "Bind an impact evaluation to an accountable issuer."
+    - "Make impact evaluations machine-verifiable and human-auditable."
+    - "Support later routing into Trust OS, Gratitude OS, Royalty OS, and Communication Royalty OS."
+    - "Preserve separation between scoring logic and attestation logic."
+  scope:
+    in_scope:
+      - "Integrity attestation for Impact Score Profile payloads."
+      - "Issuer identity declaration."
+      - "Cryptographic signature binding."
+      - "Single-signature and multi-signature workflows."
+      - "Optional linkage to CTR-ID, trace records, and existence proof systems."
+    out_of_scope:
+      - "Legal ownership determination."
+      - "Payment execution."
+      - "Royalty settlement."
+      - "Identity verification policy itself."
+      - "Universal provenance graph enforcement."
+      - "Mandatory score calculation method."
+  dependencies:
+    required:
+      - "impact-score-profile-v0.1"
+    optional:
+      - "ctr-id-unified-protocol-v0.1"
+      - "trace-record-v0.1"
+      - "existence-proof-license-protocol-v0.1"
+      - "trust-profile-v0.1"
+  design_principles:
+    - "Score and signature must remain separate layers."
+    - "A signature proves accountability and integrity, not metaphysical truth."
+    - "The spec must remain minimal enough for early adoption."
+    - "The same attestation should be readable by both humans and machines."
+    - "The envelope must support future audit, dispute, and allocation layers."
+  core_definition:
+    attestation_meaning: >
+      A signed impact attestation is a cryptographically bound statement that a
+      specified issuer asserted, reviewed, approved, rejected, or disputed an
+      impact evaluation for a specific communication-derived trace subject.
+    signature_meaning: >
+      A signature in this spec means that the signer accepts responsibility for
+      the attested statement over the canonicalized payload identified by the
+      payload hash.
+  relation_to_other_layers:
+    ctr_id: "Answers which communication-derived event or subject is being referenced."
+    impact_score_profile: "Answers how strongly the referenced subject contributed to later meaning generation."
+    signed_impact_attestation: "Answers who stood behind that evaluation, when, and with what integrity proof."
+    downstream_systems: "May use verified attestations as inputs for trust, gratitude, or royalty routing."
+
+document_model:
+  type: "object"
+  description: "Canonical top-level data structure for a signed impact attestation."
+  required:
+    - "attestation_id"
+    - "spec_version"
+    - "profile_type"
+    - "issued_at"
+    - "subject"
+    - "issuer"
+    - "attestation"
+    - "integrity"
+    - "signature_policy"
+    - "signatures"
+  properties:
+    attestation_id:
+      type: "string"
+      description: "Globally unique identifier for this attestation envelope."
+      examples:
+        - "sia:2026-05-02:impact:001"
+        - "urn:sia:impact:ctr-001:rev-a"
+    spec_version:
+      type: "string"
+      const: "0.1"
+      description: "Version of this specification used to interpret the document."
+    profile_type:
+      type: "string"
+      const: "signed-impact-attestation"
+      description: "Stable profile discriminator."
+    status:
+      type: "string"
+      enum:
+        - "draft"
+        - "active"
+        - "superseded"
+        - "revoked"
+        - "disputed"
+      description: "Lifecycle state of this attestation document."
+      default: "active"
+    issued_at:
+      type: "string"
+      format: "date-time"
+      description: "Timestamp when this attestation was issued."
+    valid_from:
+      type: "string"
+      format: "date-time"
+      description: "Optional lower bound from which the attestation is intended to be considered valid."
+    expires_at:
+      type: "string"
+      format: "date-time"
+      description: "Optional expiry time after which the attestation should not be relied on without refresh."
+    revision_of:
+      type: "string"
+      description: "Optional pointer to a previous attestation superseded by this one."
+    language:
+      type: "string"
+      description: "Primary human language used in rationale and notes."
+      default: "en"
+
+    subject:
+      type: "object"
+      description: >
+        Identifies the exact impact-scored subject being attested. The subject
+        may be resolved through references, hashes, or both.
+      required:
+        - "impact_profile_ref"
+        - "subject_hash"
+        - "subject_hash_algorithm"
+      properties:
+        impact_profile_ref:
+          type: "string"
+          description: "Reference, URI, path, or opaque ID of the target Impact Score Profile."
+          examples:
+            - "impact-score-profile:isp-2026-0001"
+            - "./examples/impact-score-profile.sample.json"
+        ctr_id_ref:
+          type: "string"
+          description: "Optional CTR-ID reference linked to the same contribution subject."
+        trace_record_ref:
+          type: "string"
+          description: "Optional trace record reference linked to the same subject."
+        provenance_ref:
+          type: "string"
+          description: "Optional provenance or lineage reference."
+        subject_locator:
+          type: "string"
+          description: "Optional dereferenceable locator for retrieving the target profile."
+        subject_hash:
+          type: "string"
+          description: "Digest of the exact target payload or canonical subject representation."
+        subject_hash_algorithm:
+          type: "string"
+          enum:
+            - "sha256"
+            - "sha384"
+            - "sha512"
+            - "blake3"
+          description: "Hash algorithm used for subject_hash."
+        subject_version:
+          type: "string"
+          description: "Optional version label of the target profile."
+        binding_scope:
+          type: "string"
+          enum:
+            - "entire_profile"
+            - "score_section_only"
+            - "selected_fields"
+          description: "Explains which part of the subject payload the binding applies to."
+          default: "entire_profile"
+        selected_field_paths:
+          type: "array"
+          description: "Required when binding_scope is selected_fields."
+          items:
+            type: "string"
+
+    issuer:
+      type: "object"
+      description: "Declares the party that issues the attestation."
+      required:
+        - "issuer_id"
+        - "issuer_type"
+      properties:
+        issuer_id:
+          type: "string"
+          description: "Stable issuer identifier."
+          examples:
+            - "did:key:z6Mkh..."
+            - "issuer:review-board-alpha"
+            - "human:alice"
+        issuer_type:
+          type: "string"
+          enum:
+            - "human_reviewer"
+            - "ai_evaluator"
+            - "organization"
+            - "multi_sig_panel"
+            - "hybrid_committee"
+          description: "Type of issuing entity."
+        display_name:
+          type: "string"
+          description: "Human-readable issuer label."
+        public_key_ref:
+          type: "string"
+          description: "Optional reference to the issuer public key or keyset."
+        existence_proof_ref:
+          type: "string"
+          description: "Optional reference to an existence proof or credential record."
+        trust_profile_ref:
+          type: "string"
+          description: "Optional pointer to a trust or reputation profile."
+        contact_ref:
+          type: "string"
+          description: "Optional contact or resolution endpoint."
+        jurisdiction:
+          type: "string"
+          description: "Optional jurisdiction or governance domain label."
+
+    attestation:
+      type: "object"
+      description: "States what is being claimed about the target impact profile."
+      required:
+        - "attestation_scope"
+        - "review_status"
+        - "confidence_level"
+      properties:
+        attestation_scope:
+          type: "array"
+          description: "One or more meanings asserted by this attestation."
+          min_items: 1
+          items:
+            type: "string"
+            enum:
+              - "authorship_of_evaluation"
+              - "integrity_of_score"
+              - "review_approval"
+              - "review_rejection"
+              - "audit_confirmation"
+              - "dispute_notice"
+              - "publication_readiness"
+              - "allocation_input_readiness"
+        review_status:
+          type: "string"
+          enum:
+            - "asserted"
+            - "reviewed"
+            - "approved"
+            - "rejected"
+            - "disputed"
+            - "withdrawn"
+          description: "Decision state represented by this attestation."
+        confidence_level:
+          type: "number"
+          minimum: 0.0
+          maximum: 1.0
+          description: "Issuer confidence in the attested statement."
+        rationale:
+          type: "string"
+          description: "Optional human-readable explanation of why the statement was issued."
+        methodology_ref:
+          type: "string"
+          description: "Optional reference to the evaluation or review method used."
+        score_snapshot:
+          type: "object"
+          description: >
+            Optional frozen summary of the evaluated score at signing time.
+            Useful when the underlying profile may later be revised.
+          properties:
+            overall_score:
+              type: "number"
+            dimensional_scores:
+              type: "object"
+              additional_properties:
+                type: "number"
+            score_scale:
+              type: "string"
+              description: "Optional description of the score range, such as 0-1 or 0-100."
+        claims:
+          type: "array"
+          description: "Optional structured claim list."
+          items:
+            type: "object"
+            required:
+              - "claim_type"
+              - "value"
+            properties:
+              claim_type:
+                type: "string"
+              value:
+                type: "string"
+              note:
+                type: "string"
+        challenge_window:
+          type: "object"
+          description: "Optional dispute period metadata."
+          properties:
+            opens_at:
+              type: "string"
+              format: "date-time"
+            closes_at:
+              type: "string"
+              format: "date-time"
+            dispute_endpoint:
+              type: "string"
+
+    integrity:
+      type: "object"
+      description: >
+        Defines how the canonical payload was normalized and hashed before signature.
+      required:
+        - "payload_hash"
+        - "payload_hash_algorithm"
+        - "canonicalization_method"
+        - "payload_scope"
+      properties:
+        payload_hash:
+          type: "string"
+          description: "Digest of the canonicalized attestation payload."
+        payload_hash_algorithm:
+          type: "string"
+          enum:
+            - "sha256"
+            - "sha384"
+            - "sha512"
+            - "blake3"
+        canonicalization_method:
+          type: "string"
+          enum:
+            - "jcs-rfc8785"
+            - "yaml-c14n-v1"
+            - "jsonld-urdna2015"
+            - "custom"
+          description: "Canonicalization method used before hashing."
+        custom_canonicalization_ref:
+          type: "string"
+          description: "Required when canonicalization_method is custom."
+        payload_scope:
+          type: "string"
+          enum:
+            - "all_fields_except_signatures"
+            - "all_fields_except_signatures_and_transport_metadata"
+            - "selected_fields"
+          description: "Explains which part of the envelope was hashed."
+        selected_field_paths:
+          type: "array"
+          description: "Required when payload_scope is selected_fields."
+          items:
+            type: "string"
+        detached_payload_ref:
+          type: "string"
+          description: "Optional reference when the signed payload is stored separately."
+
+    signature_policy:
+      type: "object"
+      description: "Declares the minimum signature requirements for this attestation."
+      required:
+        - "min_signatures"
+        - "threshold_mode"
+      properties:
+        min_signatures:
+          type: "integer"
+          minimum: 1
+          description: "Minimum number of valid signatures required."
+        threshold_mode:
+          type: "string"
+          enum:
+            - "any_of"
+            - "all_of"
+            - "quorum"
+            - "weighted"
+          description: "Policy for satisfying the signature requirement."
+        required_signer_roles:
+          type: "array"
+          description: "Optional signer roles that must appear among valid signatures."
+          items:
+            type: "string"
+            enum:
+              - "issuer"
+              - "reviewer"
+              - "auditor"
+              - "approver"
+              - "witness"
+              - "allocator"
+        weighted_threshold:
+          type: "number"
+          description: "Required when threshold_mode is weighted."
+        duplicate_signer_strategy:
+          type: "string"
+          enum:
+            - "forbid"
+            - "allow_if_distinct_keys"
+            - "allow"
+          default: "forbid"
+
+    signatures:
+      type: "array"
+      description: "One or more cryptographic signatures over the canonicalized payload."
+      min_items: 1
+      items:
+        type: "object"
+        required:
+          - "signature_id"
+          - "signer_id"
+          - "signer_role"
+          - "signed_at"
+          - "signature_suite"
+          - "signature_value"
+        properties:
+          signature_id:
+            type: "string"
+            description: "Unique identifier for the signature entry."
+          signer_id:
+            type: "string"
+            description: "Identifier of the signer."
+          signer_role:
+            type: "string"
+            enum:
+              - "issuer"
+              - "reviewer"
+              - "auditor"
+              - "approver"
+              - "witness"
+              - "allocator"
+          signer_display_name:
+            type: "string"
+          signer_key_ref:
+            type: "string"
+            description: "Reference to the signer public key."
+          signer_existence_proof_ref:
+            type: "string"
+            description: "Optional link to an existence proof for the signer."
+          signed_at:
+            type: "string"
+            format: "date-time"
+          signature_suite:
+            type: "string"
+            enum:
+              - "ed25519-jcs-2022"
+              - "ecdsa-p256-sha256-jcs"
+              - "rsa-pss-sha256-c14n"
+              - "bbs-2023"
+              - "custom"
+          custom_signature_suite_ref:
+            type: "string"
+            description: "Required when signature_suite is custom."
+          signature_format:
+            type: "string"
+            enum:
+              - "base64"
+              - "base64url"
+              - "hex"
+              - "multibase"
+            default: "base64url"
+          signature_value:
+            type: "string"
+            description: "Encoded signature value."
+          key_purpose:
+            type: "string"
+            enum:
+              - "assertion"
+              - "authentication"
+              - "delegation"
+              - "approval"
+            default: "assertion"
+          covers_payload_hash:
+            type: "boolean"
+            default: true
+          verification_material_ref:
+            type: "string"
+            description: "Optional external verification material such as DID document or certificate chain."
+          note:
+            type: "string"
+
+    evidence:
+      type: "array"
+      description: "Optional supporting material relevant to the attestation."
+      items:
+        type: "object"
+        required:
+          - "evidence_type"
+          - "ref"
+        properties:
+          evidence_type:
+            type: "string"
+            enum:
+              - "review_log"
+              - "audit_report"
+              - "discussion_record"
+              - "source_snapshot"
+              - "proof_bundle"
+              - "external_registry_entry"
+          ref:
+            type: "string"
+          hash:
+            type: "string"
+          hash_algorithm:
+            type: "string"
+            enum:
+              - "sha256"
+              - "sha384"
+              - "sha512"
+              - "blake3"
+          note:
+            type: "string"
+
+    chain_of_attestation:
+      type: "array"
+      description: >
+        Optional ordered chain of preceding attestations, approvals, or linked proofs.
+      items:
+        type: "object"
+        required:
+          - "relation"
+          - "ref"
+        properties:
+          relation:
+            type: "string"
+            enum:
+              - "previous_revision"
+              - "supporting_attestation"
+              - "supersedes"
+              - "disputes"
+              - "derived_from"
+              - "anchors_to"
+          ref:
+            type: "string"
+          hash:
+            type: "string"
+          hash_algorithm:
+            type: "string"
+
+    governance:
+      type: "object"
+      description: "Optional governance and policy declarations."
+      properties:
+        policy_ref:
+          type: "string"
+          description: "Reference to governance rules under which the attestation was issued."
+        issuer_commitments:
+          type: "array"
+          items:
+            type: "string"
+        auditability_level:
+          type: "string"
+          enum:
+            - "minimal"
+            - "standard"
+            - "enhanced"
+            - "public"
+        visibility:
+          type: "string"
+          enum:
+            - "private"
+            - "shared"
+            - "public"
+          default: "shared"
+
+    extensions:
+      type: "object"
+      description: "Optional vendor- or ecosystem-specific extension container."
+      additional_properties: true
+
+processing_rules:
+  canonical_payload_definition:
+    description: >
+      The canonical payload is the normalized content referenced by integrity.payload_scope.
+      Unless explicitly overridden, the canonical payload includes all top-level fields
+      except signatures.signature_value and transport-only metadata.
+    default_rule: "Hash the canonicalized envelope excluding signatures[].signature_value."
+  signature_verification_steps:
+    - "Resolve the target subject using subject.impact_profile_ref and/or subject.subject_locator when available."
+    - "Recompute subject_hash over the referenced subject according to subject.subject_hash_algorithm."
+    - "Confirm that the recomputed subject hash matches subject.subject_hash."
+    - "Construct the canonical payload according to integrity.payload_scope."
+    - "Canonicalize the payload using integrity.canonicalization_method."
+    - "Recompute integrity.payload_hash."
+    - "Verify every required signature against the recomputed payload hash."
+    - "Check that signature_policy is satisfied by valid signatures."
+    - "Respect status, validity window, and revocation/dispute information."
+  invalid_conditions:
+    - "Missing required fields."
+    - "Subject hash mismatch."
+    - "Payload hash mismatch."
+    - "Signature verification failure."
+    - "Signature policy threshold not met."
+    - "Expired attestation where freshness is required."
+    - "Revoked or disputed attestation without override policy."
+  recommended_behaviors:
+    - "Retain immutable snapshots of referenced impact profiles for reproducible verification."
+    - "Use stable key identifiers and publish verification material."
+    - "Prefer explicit rationale when approving or rejecting high-impact profiles."
+    - "Use multi-signature mode for allocation-critical attestations."
+
+semantic_rules:
+  interpretation:
+    - "This spec does not declare ownership."
+    - "This spec does not trigger payment by itself."
+    - "This spec may be consumed by higher layers that decide trust, gratitude, or allocation."
+    - "A valid signature indicates accountable assertion, not universal correctness."
+  revision_model:
+    - "A newer attestation may supersede an older one by setting revision_of and status."
+    - "Disputes should be represented as new attestations rather than silent mutation."
+  dispute_model:
+    - "Disputes should preserve prior records whenever possible."
+    - "Rejected or disputed states remain historically meaningful and should not be erased."
+
+security_considerations:
+  risks:
+    - "Compromised private keys may create false attestations."
+    - "Weak canonicalization may produce signature ambiguity."
+    - "Unstable subject references may break reproducibility."
+    - "Blind trust in a single issuer may centralize influence."
+  mitigations:
+    - "Prefer strong key management and rotation policies."
+    - "Use deterministic canonicalization."
+    - "Anchor subject payloads with hashes and immutable snapshots."
+    - "Adopt multi-signature review for high-stakes allocation paths."
+
+privacy_considerations:
+  notes:
+    - "Issuers may use stable pseudonymous identifiers when policy allows."
+    - "Public attestations should avoid leaking unnecessary subject metadata."
+    - "Evidence attachments should be minimized to the least disclosure necessary."
+
+interoperability:
+  expected_connections:
+    - "Impact Score Profile can be attested without changing its native schema."
+    - "CTR-ID may be referenced when the impact subject emerges from a communication trace event."
+    - "Existence Proof OS can provide signer identity anchoring."
+    - "Trust OS can consume validated attestations as confidence-bearing inputs."
+    - "Royalty OS and Communication Royalty OS can consume approved attestations as allocation inputs."
+
+minimal_example_shape:
+  attestation_id: "sia:2026-05-02:impact:001"
+  spec_version: "0.1"
+  profile_type: "signed-impact-attestation"
+  issued_at: "2026-05-02T10:00:00Z"
+  subject:
+    impact_profile_ref: "impact-score-profile:isp-2026-0001"
+    ctr_id_ref: "ctr:msg:2026-0001"
+    subject_hash: "8f3c4c7f0a..."
+    subject_hash_algorithm: "sha256"
+  issuer:
+    issuer_id: "did:key:z6MkhExample"
+    issuer_type: "organization"
+    display_name: "Kazene Review Board"
+  attestation:
+    attestation_scope:
+      - "integrity_of_score"
+      - "review_approval"
+      - "allocation_input_readiness"
+    review_status: "approved"
+    confidence_level: 0.92
+    rationale: "The profile was reviewed and deemed sufficiently stable for downstream allocation."
+  integrity:
+    payload_hash: "a7b1d93b4e..."
+    payload_hash_algorithm: "sha256"
+    canonicalization_method: "jcs-rfc8785"
+    payload_scope: "all_fields_except_signatures"
+  signature_policy:
+    min_signatures: 1
+    threshold_mode: "any_of"
+  signatures:
+    - signature_id: "sig-001"
+      signer_id: "did:key:z6MkhExample"
+      signer_role: "issuer"
+      signed_at: "2026-05-02T10:01:00Z"
+      signature_suite: "ed25519-jcs-2022"
+      signature_format: "base64url"
+      signature_value: "MEUCIQDxExample"
+
+recommended_repository_paths:
+  spec_file: "spec/signed-impact-attestation-v0.1.yaml"
+  schema_file: "schemas/signed-impact-attestation-v0.1.schema.json"
+  sample_file: "examples/signed-impact-attestation.sample.json"
+  workflow_file: ".github/workflows/validate-specs.yml"
