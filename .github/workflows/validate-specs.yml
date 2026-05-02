@@ -1,0 +1,143 @@
+name: Validate Specs
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema pyyaml
+
+      - name: Validate specification files
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import yaml
+
+          from jsonschema import Draft202012Validator, ValidationError, validate
+
+          success = True
+
+          def load_json(path):
+              with open(path, "r", encoding="utf-8") as f:
+                  return json.load(f)
+
+          def load_yaml(path):
+              with open(path, "r", encoding="utf-8") as f:
+                  return yaml.safe_load(f)
+
+          print("=== Validating Signed Impact Attestation repository ===")
+
+          # -------------------------------------------------------------------
+          # 1. Validate YAML specification file
+          # -------------------------------------------------------------------
+          print("\n=== Validating YAML specification ===")
+          spec_path = "spec/signed-impact-attestation-v0.1.yaml"
+          print(f"Spec: {spec_path}")
+
+          if not os.path.exists(spec_path):
+              print(f"ERROR: Spec file not found: {spec_path}")
+              success = False
+          else:
+              try:
+                  spec = load_yaml(spec_path)
+                  if spec is None:
+                      print(f"ERROR: YAML spec is empty: {spec_path}")
+                      success = False
+                  elif not isinstance(spec, dict):
+                      print(f"ERROR: YAML spec must be a mapping/object: {spec_path}")
+                      success = False
+                  else:
+                      print("OK: YAML specification loaded successfully.")
+              except yaml.YAMLError as e:
+                  print(f"ERROR: Invalid YAML in {spec_path}: {e}")
+                  success = False
+              except Exception as e:
+                  print(f"ERROR: Failed to read {spec_path}: {e}")
+                  success = False
+
+          # -------------------------------------------------------------------
+          # 2. Validate JSON Schema + sample JSON
+          # -------------------------------------------------------------------
+          print("\n=== Validating Signed Impact Attestation v0.1 ===")
+          schema_path = "schemas/signed-impact-attestation-v0.1.schema.json"
+          sample_path = "examples/signed-impact-attestation.sample.json"
+          print(f"Schema: {schema_path}")
+          print(f"Sample: {sample_path}")
+
+          if not os.path.exists(schema_path):
+              print(f"ERROR: Schema file not found: {schema_path}")
+              success = False
+          elif not os.path.exists(sample_path):
+              print(f"ERROR: Sample file not found: {sample_path}")
+              success = False
+          else:
+              try:
+                  schema = load_json(schema_path)
+              except json.JSONDecodeError as e:
+                  print(f"ERROR: Invalid JSON in {schema_path}: {e}")
+                  success = False
+              except Exception as e:
+                  print(f"ERROR: Failed to read {schema_path}: {e}")
+                  success = False
+              else:
+                  try:
+                      Draft202012Validator.check_schema(schema)
+                  except Exception as e:
+                      print(f"ERROR: Invalid JSON Schema in {schema_path}: {e}")
+                      success = False
+                  else:
+                      try:
+                          sample = load_json(sample_path)
+                      except json.JSONDecodeError as e:
+                          print(f"ERROR: Invalid JSON in {sample_path}: {e}")
+                          success = False
+                      except Exception as e:
+                          print(f"ERROR: Failed to read {sample_path}: {e}")
+                          success = False
+                      else:
+                          try:
+                              validate(instance=sample, schema=schema)
+                              print("OK: Signed Impact Attestation v0.1 sample is valid.")
+                          except ValidationError as e:
+                              print(f"ERROR: Validation failed for {sample_path}")
+                              path = "/".join(str(p) for p in e.path)
+                              print(f"Path: {path if path else '(root)'}")
+                              print(f"Message: {e.message}")
+                              success = False
+
+          # -------------------------------------------------------------------
+          # Final result
+          # -------------------------------------------------------------------
+          if not success:
+              print("\nValidation failed.")
+              sys.exit(1)
+
+          print("\nAll validations passed.")
+          PY
