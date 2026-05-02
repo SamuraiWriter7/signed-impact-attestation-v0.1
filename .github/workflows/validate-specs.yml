@@ -58,7 +58,7 @@ jobs:
           # 1. Validate YAML specification file
           # -------------------------------------------------------------------
           print("\n=== Validating YAML specification ===")
-          spec_path = "spec/signed-impact-attestation-v0.1.yaml"
+          spec_path = "signed-impact-attestation-v0.1.yaml"
           print(f"Spec: {spec_path}")
 
           if not os.path.exists(spec_path):
