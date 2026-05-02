@@ -1,0 +1,146 @@
+{
+  "attestation_id": "sia:2026-05-02:impact:001",
+  "spec_version": "0.1",
+  "profile_type": "signed-impact-attestation",
+  "status": "active",
+  "issued_at": "2026-05-02T10:00:00Z",
+  "valid_from": "2026-05-02T10:00:00Z",
+  "language": "en",
+  "subject": {
+    "impact_profile_ref": "impact-score-profile:isp-2026-0001",
+    "ctr_id_ref": "ctr:msg:2026-0001",
+    "trace_record_ref": "trace:record:2026-0001",
+    "provenance_ref": "prov:chain:2026-0001",
+    "subject_locator": "https://example.org/impact/isp-2026-0001.json",
+    "subject_hash": "8f3c4c7f0ab1f2d3e4c5b6a79876543210fedcba11223344556677889900aabb",
+    "subject_hash_algorithm": "sha256",
+    "subject_version": "0.1",
+    "binding_scope": "entire_profile"
+  },
+  "issuer": {
+    "issuer_id": "did:key:z6MkhExampleIssuer001",
+    "issuer_type": "organization",
+    "display_name": "Kazene Review Board",
+    "public_key_ref": "did:key:z6MkhExampleIssuer001#key-1",
+    "existence_proof_ref": "existence-proof:entity:krb-001",
+    "trust_profile_ref": "trust-profile:krb-001",
+    "contact_ref": "mailto:review-board@example.org",
+    "jurisdiction": "kazene-civil-layer"
+  },
+  "attestation": {
+    "attestation_scope": [
+      "integrity_of_score",
+      "review_approval",
+      "allocation_input_readiness"
+    ],
+    "review_status": "approved",
+    "confidence_level": 0.92,
+    "rationale": "The impact profile was reviewed and approved as a stable allocation input for downstream trust, gratitude, and royalty routing.",
+    "methodology_ref": "method:impact-review:v0.1",
+    "score_snapshot": {
+      "overall_score": 0.87,
+      "dimensional_scores": {
+        "reference_strength": 0.91,
+        "transformation_weight": 0.84,
+        "novelty_delta": 0.79,
+        "dependency_weight": 0.88,
+        "downstream_reuse_potential": 0.93
+      },
+      "score_scale": "0-1"
+    },
+    "claims": [
+      {
+        "claim_type": "review_summary",
+        "value": "stable_for_downstream_use",
+        "note": "The reviewed score is suitable for allocation-layer ingestion."
+      },
+      {
+        "claim_type": "integrity_assertion",
+        "value": "payload_hash_verified",
+        "note": "The referenced subject hash matched the reviewed payload snapshot."
+      }
+    ],
+    "challenge_window": {
+      "opens_at": "2026-05-02T10:00:00Z",
+      "closes_at": "2026-05-16T10:00:00Z",
+      "dispute_endpoint": "https://example.org/disputes/sia"
+    }
+  },
+  "integrity": {
+    "payload_hash": "a7b1d93b4ef90c12ab34cd56ef78900123456789abcdef001122334455667788",
+    "payload_hash_algorithm": "sha256",
+    "canonicalization_method": "jcs-rfc8785",
+    "payload_scope": "all_fields_except_signatures"
+  },
+  "signature_policy": {
+    "min_signatures": 1,
+    "threshold_mode": "any_of",
+    "required_signer_roles": [
+      "issuer"
+    ],
+    "duplicate_signer_strategy": "forbid"
+  },
+  "signatures": [
+    {
+      "signature_id": "sig-001",
+      "signer_id": "did:key:z6MkhExampleIssuer001",
+      "signer_role": "issuer",
+      "signer_display_name": "Kazene Review Board Signing Key 1",
+      "signer_key_ref": "did:key:z6MkhExampleIssuer001#key-1",
+      "signer_existence_proof_ref": "existence-proof:entity:krb-001",
+      "signed_at": "2026-05-02T10:01:00Z",
+      "signature_suite": "ed25519-jcs-2022",
+      "signature_format": "base64url",
+      "signature_value": "MEUCIQDxExampleSignedImpactAttestationValue001AbCdEfGhIjKlMnOpQrStUvWxYz",
+      "key_purpose": "assertion",
+      "covers_payload_hash": true,
+      "verification_material_ref": "https://example.org/keys/krb-001.json",
+      "note": "Primary issuer signature."
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_type": "review_log",
+      "ref": "https://example.org/reviews/review-log-2026-0001.json",
+      "hash": "bb11cc22dd33ee44ff5566778899aabbccddeeff00112233445566778899aacc",
+      "hash_algorithm": "sha256",
+      "note": "Internal review log snapshot."
+    },
+    {
+      "evidence_type": "audit_report",
+      "ref": "https://example.org/audits/audit-2026-0001.pdf",
+      "hash": "cc22dd33ee44ff5566778899aabbccddeeff00112233445566778899aaccbb11",
+      "hash_algorithm": "sha256",
+      "note": "Supplementary audit report."
+    }
+  ],
+  "chain_of_attestation": [
+    {
+      "relation": "anchors_to",
+      "ref": "existence-proof:entity:krb-001",
+      "hash": "dd33ee44ff5566778899aabbccddeeff00112233445566778899aaccbb11cc22",
+      "hash_algorithm": "sha256"
+    }
+  ],
+  "governance": {
+    "policy_ref": "policy:impact-attestation-governance:v0.1",
+    "issuer_commitments": [
+      "deterministic-review",
+      "hash-bound-subject",
+      "dispute-preserving-revision"
+    ],
+    "auditability_level": "standard",
+    "visibility": "shared"
+  },
+  "extensions": {
+    "allocation_hint": {
+      "eligible_for_downstream_routing": true,
+      "target_layers": [
+        "trust-os",
+        "gratitude-os",
+        "royalty-os",
+        "communication-royalty-os"
+      ]
+    }
+  }
+}
